@@ -6,13 +6,17 @@ import (
 	"github.com/coredns/coredns/plugin"
 )
 
-func init() { plugin.Register("rebinder", setup) }
+func init() { plugin.Register("rebind", setup) }
 
 func setup(c *caddy.Controller) error {
-	c.Next()
+	c.Next() // 'rebind
+
+	if c.NextArg() {
+		return plugin.Error("rebind", c.ArgErr())
+	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-		return Rebinder{}
+		return Rebinder{Next: next}
 	})
 
 	return nil
