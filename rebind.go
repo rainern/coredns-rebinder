@@ -26,9 +26,9 @@ type Node struct {
 func (rb Rebinder) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 
-	// Only respond to A (1), CNAME (5) and AAAA (28) requests
+	// Only respond to A (1), CNAME (5)
 	switch r.Question[0].Qtype {
-	case 1, 5, 28:
+	case 1, 5:
 		{
 			break
 		}
@@ -43,11 +43,10 @@ func (rb Rebinder) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	label := tokens[0]
 	var answer net.IP
 
-	// check if query is in cache
+	// Check if query is in cache, else add to cache
 	if val, ok := bindMap[label]; ok {
 		answer = val.value
 	} else {
-		// add query to cache
 		if len(tokens) < 4 {
 			return plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
 		}
@@ -64,8 +63,8 @@ func (rb Rebinder) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 
 		next := Node{value: snd}
 		bindMap[label] = &Node{value: fst, next: &next}
-		next.next = bindMap[label]
 
+		next.next = bindMap[label]
 		answer = fst
 	}
 
@@ -75,18 +74,6 @@ func (rb Rebinder) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	a.Authoritative = true
 
 	var rr dns.RR
-	/*
-		switch state.Family() {
-		case 1:
-			rr = new(dns.A)
-			rr.(*dns.A).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeA, Class: state.QClass()}
-			rr.(*dns.A).A = answer.To4()
-		case 2:
-			rr = new(dns.A)
-			rr.(*dns.AAAA).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeAAAA, Class: state.QClass()}
-			rr.(*dns.AAAA).AAAA = answer
-		}
-	*/
 	rr = new(dns.A)
 	rr.(*dns.A).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeA, Class: state.QClass()}
 	rr.(*dns.A).A = answer.To4()
