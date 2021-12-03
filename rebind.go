@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/request"
@@ -63,6 +64,9 @@ func (rb Rebinder) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 
 		next := Node{value: snd}
 		bindMap[label] = &Node{value: fst, next: &next}
+
+		// Entries last for 5 minutes in cache
+		time.AfterFunc(300, func() { delete(bindMap, label) })
 
 		next.next = bindMap[label]
 		answer = fst
