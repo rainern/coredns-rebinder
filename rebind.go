@@ -2,7 +2,7 @@ package rebinder
 
 import (
 	"context"
-	"encoding/hex"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"strconv"
@@ -46,7 +46,9 @@ func (rb Rebinder) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	}
 
 	// Parse query
-	tokens := strings.Split(state.Name(), ".")
+	query := strings.SplitN(state.Name(), ".", 2)[0]
+	tokens := strings.Split(query, "-")
+
 	label := tokens[0]
 	var answer net.IP
 
@@ -60,12 +62,12 @@ func (rb Rebinder) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		}
 
 		// checks for malformed query
-		if len(tokens) < 6 {
+		if len(tokens) < 5 {
 			return plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
 		}
 
-		// token 1: first IP address (hex encoded)
-		fst, err := decodeHexIP(tokens[1])
+		// token 1: first IP address
+		fst, err := encodeIp(tokens[1])
 		if err != nil {
 			plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
 		}
@@ -76,8 +78,8 @@ func (rb Rebinder) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 			plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
 		}
 
-		// token 3: second IP address (hex encoded)
-		snd, err := decodeHexIP(tokens[3])
+		// token 3: second IP address
+		snd, err := encodeIp(tokens[3])
 		if err != nil {
 			plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
 		}
@@ -124,17 +126,16 @@ func (rb Rebinder) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	return 0, nil
 }
 
-func decodeHexIP(hexIp string) (net.IP, error) {
-	// hex to string
-	ipStr, err := hex.DecodeString(hexIp)
+func encodeIp(ipStr string) (net.IP, error) {
+	// string to int
+	ipInt, err := strconv.ParseUint(ipStr, 10, 32)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid Hex IP: %s", hexIp)
-	}
-	// string to IP
-	ip := net.ParseIP(string(ipStr))
-	if ip == nil {
 		return nil, fmt.Errorf("Invalid IP: %s", ipStr)
 	}
+
+	// int to ip
+	ip := make(net.IP, 4)
+	binary.BigEndian.PutUint32(ip, uint32(ipInt))
 
 	return ip, nil
 }
