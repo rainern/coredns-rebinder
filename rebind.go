@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +26,7 @@ type Rebinder struct {
 
 type Node struct {
 	value net.IP
+	count int
 	next  *Node
 }
 
@@ -58,29 +60,40 @@ func (rb Rebinder) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		}
 
 		// checks for malformed query
-		if len(tokens) < 4 {
+		if len(tokens) < 6 {
 			return plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
 		}
 
+		// token 1: first IP address (hex encoded)
 		fst, err := decodeHexIP(tokens[1])
 		if err != nil {
 			plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
 		}
 
-		snd, err := decodeHexIP(tokens[2])
+		// token 2: first IP repeat pattern
+		fstRepeat, err := strconv.Atoi(tokens[2])
+		if err != nil || fstRepeat < 1 {
+			plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
+		}
+
+		// token 3: second IP address (hex encoded)
+		snd, err := decodeHexIP(tokens[3])
 		if err != nil {
 			plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
 		}
 
+		// token 4: second IP repeat pattern
+		sndRepeat, err := strconv.Atoi(tokens[4])
+		if err != nil || sndRepeat < 1 {
+			plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
+		}
+
 		// correctly formed query, add to cache
-		next := Node{value: snd}
-		bindMap[label] = &Node{value: fst, next: &next}
+		next := Node{value: snd, count: sndRepeat}
+		bindMap[label] = &Node{value: fst, count: fstRepeat, next: &next}
 
 		// expire entry after specified duration
 		time.AfterFunc(rb.CacheTimer, func() { delete(bindMap, label) })
-
-		// ouroboros
-		next.next = bindMap[label]
 
 		// answer query
 		answer = fst
@@ -98,8 +111,14 @@ func (rb Rebinder) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	rr.(*dns.A).A = answer.To4()
 	a.Answer = append(a.Answer, rr)
 
-	// Next node
-	bindMap[label] = bindMap[label].next
+	// next node
+	if bindMap[label].count > 1 {
+		bindMap[label].count--
+	} else if bindMap[label].next != nil {
+		bindMap[label] = bindMap[label].next
+	} else {
+		delete(bindMap, label)
+	}
 
 	w.WriteMsg(a)
 	return 0, nil
