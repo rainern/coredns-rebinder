@@ -17,7 +17,11 @@ const name = "rebind"
 
 var bindMap = make(map[string]*Node)
 
-type Rebinder struct{ Next plugin.Handler }
+type Rebinder struct {
+	Next       plugin.Handler
+	CacheTimer time.Duration
+	CacheLimit int
+}
 
 type Node struct {
 	value net.IP
@@ -48,6 +52,12 @@ func (rb Rebinder) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	if val, ok := bindMap[label]; ok {
 		answer = val.value
 	} else {
+		// if cache is full, ignore query
+		if len(bindMap) >= rb.CacheLimit {
+			return plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
+		}
+
+		// checks for malformed query
 		if len(tokens) < 4 {
 			return plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
 		}
@@ -62,26 +72,30 @@ func (rb Rebinder) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 			plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
 		}
 
+		// correctly formed query, add to cache
 		next := Node{value: snd}
 		bindMap[label] = &Node{value: fst, next: &next}
 
-		// Entries last for 5 minutes in cache
-		time.AfterFunc(300, func() { delete(bindMap, label) })
+		// expire entry after specified duration
+		time.AfterFunc(rb.CacheTimer, func() { delete(bindMap, label) })
 
+		// ouroboros
 		next.next = bindMap[label]
+
+		// answer query
 		answer = fst
 	}
 
-	// Respond
+	// respond
 	a := new(dns.Msg)
 	a.SetReply(r)
 	a.Authoritative = true
 
+	// only A records supported so far
 	var rr dns.RR
 	rr = new(dns.A)
 	rr.(*dns.A).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeA, Class: state.QClass()}
 	rr.(*dns.A).A = answer.To4()
-
 	a.Answer = append(a.Answer, rr)
 
 	// Next node
