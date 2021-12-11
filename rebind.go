@@ -33,16 +33,9 @@ type Node struct {
 func (rb Rebinder) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 
-	// Only respond to A (1), CNAME (5)
-	switch r.Question[0].Qtype {
-	case 1, 5:
-		{
-			break
-		}
-	default:
-		{
-			return plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
-		}
+	// Only respond to A (1)
+	if r.Question[0].Qtype != 1 {
+		return plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
 	}
 
 	// Parse query
