@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
 )
@@ -32,6 +33,7 @@ type Node struct {
 
 func (rb Rebinder) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
+	log.Debug("got rebind request: " + state.Name())
 
 	// Only respond to A (1)
 	if r.Question[0].Qtype != 1 {
@@ -51,35 +53,41 @@ func (rb Rebinder) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	} else {
 		// if cache is full, ignore query
 		if len(bindMap) >= rb.CacheLimit {
+			log.Debug("cache full")
 			return plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
 		}
 
 		// checks for malformed query
 		if len(tokens) < 5 {
+			log.Debug("malformed query")
 			return plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
 		}
 
 		// token 1: first IP address
 		fst, err := encodeIp(tokens[1])
 		if err != nil {
+			log.Debug("first ip malformed")
 			plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
 		}
 
 		// token 2: first IP repeat pattern
 		fstRepeat, err := strconv.Atoi(tokens[2])
 		if err != nil || fstRepeat < 1 {
+			log.Debug("first repeat pattern malformed")
 			plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
 		}
 
 		// token 3: second IP address
 		snd, err := encodeIp(tokens[3])
 		if err != nil {
+			log.Debug("second ip malformed")
 			plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
 		}
 
 		// token 4: second IP repeat pattern
 		sndRepeat, err := strconv.Atoi(tokens[4])
 		if err != nil || sndRepeat < 1 {
+			log.Debug("second repeat pattern malformed")
 			plugin.NextOrFailure(state.Name(), rb.Next, ctx, w, r)
 		}
 

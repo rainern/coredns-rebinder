@@ -8,9 +8,13 @@ import (
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/log"
 )
 
-func init() { plugin.Register("rebind", setup) }
+func init() {
+	plugin.Register("rebind", setup)
+	log.Debug("loaded rebind plugin")
+}
 
 func setup(c *caddy.Controller) error {
 	c.Next() // rebinder
