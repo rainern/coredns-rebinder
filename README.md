@@ -6,3 +6,5 @@ example.com {
 	rebind
 }
 ```
+
+# example rebind
