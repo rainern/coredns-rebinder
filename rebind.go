@@ -10,12 +10,14 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/pkg/log"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
 )
 
 const name = "rebind"
+
+var log = clog.NewWithPlugin(name)
 
 var bindMap = make(map[string]*Node)
 
