@@ -20,27 +20,36 @@ func setup(c *caddy.Controller) error {
 
 	var cacheTimer time.Duration = 300
 	var cacheLimit int = 10000
+	var ttl int = 1
 	var err error
 
 	switch c.Val() {
+	case "ttl":
+		if !c.NextArg() {
+			return fmt.Errorf("missing value for ttl")
+		}
+		ttl, err = strconv.Atoi(c.Val())
+		if err != nil {
+			return fmt.Errorf("invalid value for ttl")
+		}
 	case "cacheTimer":
 		if !c.NextArg() {
-			return fmt.Errorf("Missing value for cacheTimer")
+			return fmt.Errorf("missing value for cacheTimer")
 		}
 		cacheTimer, err = time.ParseDuration(c.Val())
 		if err != nil {
-			return fmt.Errorf("Invalid value for cacheTimer")
+			return fmt.Errorf("invalid value for cacheTimer")
 		}
 	case "cacheLimit":
 		if !c.NextArg() {
-			return fmt.Errorf("Missing value for cacheLimit")
+			return fmt.Errorf("missing value for cacheLimit")
 		}
 		cacheLimit, err = strconv.Atoi(c.Val())
 		if err != nil {
-			return fmt.Errorf("Invalid value for cacheLimit")
+			return fmt.Errorf("invalid value for cacheLimit")
 		}
 	default:
-		return fmt.Errorf(("Unknown argument"))
+		return fmt.Errorf(("unknown argument"))
 	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
@@ -48,6 +57,7 @@ func setup(c *caddy.Controller) error {
 			Next:       next,
 			CacheTimer: cacheTimer,
 			CacheLimit: cacheLimit,
+			Ttl:        ttl,
 		}
 	})
 

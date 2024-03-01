@@ -25,6 +25,7 @@ type Rebinder struct {
 	Next       plugin.Handler
 	CacheTimer time.Duration
 	CacheLimit int
+	Ttl        int
 }
 
 type Node struct {
@@ -133,7 +134,7 @@ func encodeIp(ipStr string) (net.IP, error) {
 	// string to int
 	ipInt, err := strconv.ParseUint(ipStr, 10, 32)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid IP: %s", ipStr)
+		return nil, fmt.Errorf("invalid IP: %s", ipStr)
 	}
 
 	// int to ip
