@@ -113,7 +113,7 @@ func (rb Rebinder) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	// only A records supported so far
 	var rr dns.RR
 	rr = new(dns.A)
-	rr.(*dns.A).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeA, Class: state.QClass()}
+	rr.(*dns.A).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeA, Class: state.QClass(), Ttl: uint32(rb.Ttl)}
 	rr.(*dns.A).A = answer.To4()
 	a.Answer = append(a.Answer, rr)
 
